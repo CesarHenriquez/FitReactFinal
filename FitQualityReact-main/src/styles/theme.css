@@ -2,14 +2,14 @@
     VARIABLES DE COLOR Y RESET
 ========================================================= */
 :root {
-  --bg: #0f172a;          /* azul muy oscuro (fondo) */
-  --surface: #111827;     /* gris carbón (header/footer) */
-  --primary: #22c55e;     /* verde acento */
+  --bg: #0f172a;         
+  --surface: #111827;    
+  --primary: #22c55e;     
   --primary-700: #16a34a;
-  --text: #e5e7eb;        /* gris claro texto */
-  --muted: #94a3b8;       /* gris medio */
-  --card: #1f2937;        /* gris pizarra (cards/forms) */
-  --border: #334155;      /* gris borde */
+  --text: #e5e7eb;       
+  --muted: #94a3b8;      
+  --card: #1f2937;        
+  --border: #334155;      
   --radius: 16px;
 }
 
@@ -219,18 +219,18 @@ textarea { resize: vertical; min-height: 100px; }
 ========================================================= */
 .bg-cover {
   position: relative;
-  isolation: isolate; /* stacking context */
-  overflow: hidden; /* oculta bordes del blur */
-  min-height: 100vh; /* pantalla completa */
+  isolation: isolate; 
+  overflow: hidden; 
+  min-height: 100vh; 
   display: flex;
-  align-items: center; /* centra verticalmente */
+  align-items: center; 
 }
 
 .bg-cover::before {
   content: "";
   position: absolute; inset: 0;
   background: var(--bg-url) center/cover no-repeat;
-  transform: scale(1.06); /* evita borde duro al hacer blur */
+  transform: scale(1.06); 
   filter: blur(8px);
   z-index: -2;
 }
@@ -238,7 +238,7 @@ textarea { resize: vertical; min-height: 100px; }
 .bg-cover::after {
   content: "";
   position: absolute; inset: 0;
-  background: rgba(15, 23, 42, .70); /* oscurecido para legibilidad */
+  background: rgba(15, 23, 42, .70); 
   z-index: -1;
 }
 
@@ -248,7 +248,7 @@ textarea { resize: vertical; min-height: 100px; }
     PRODUCTOS DESTACADOS Y CATÁLOGO
 ========================================================= */
 
-/* AJUSTE DE IMAGEN EN DETALLE (CLASE RECOMENDADA) */
+
 .product-detail-image {
   max-width: 450px; 
   width: 100%; 
@@ -293,4 +293,37 @@ textarea { resize: vertical; min-height: 100px; }
 
 .card a:hover {
   color: var(--primary) !important; 
+}
+/* =========================================================
+   OVERRIDES PARA FORMULARIOS CLAROS (Admin Panel)
+========================================================= */
+
+
+input.form-control, 
+select.form-control, 
+textarea.form-control {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border: 1px solid #ced4da !important;
+    font-weight: 500 !important;
+}
+
+
+input.form-control:focus, 
+select.form-control:focus, 
+textarea.form-control:focus {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border-color: #22c55e !important; 
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25) !important;
+}
+
+
+input.form-control:-webkit-autofill,
+input.form-control:-webkit-autofill:hover,
+input.form-control:-webkit-autofill:focus,
+input.form-control:-webkit-autofill:active {
+    -webkit-text-fill-color: #000000 !important;
+    -webkit-box-shadow: 0 0 0px 1000px #ffffff inset !important;
+    transition: background-color 5000s ease-in-out 0s;
 }

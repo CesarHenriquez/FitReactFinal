@@ -11,6 +11,7 @@ import { AdminPage } from "../pages/Admin/AdminPage";
 import { RegisterPage } from "../pages/Auth/RegisterPage";
 import { LoginPage } from "../pages/Auth/LoginPage";
 import { ContactPage } from "../pages/Contact/ContactPage";
+import { SellerPage } from "../pages/Admin/SellerPage";
 import { AboutUsPage } from "../pages/About/AboutUsPage";
 
 export function AppRouter() {
@@ -28,6 +29,7 @@ export function AppRouter() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/contacto" element={<ContactPage />} />
         <Route path="/nosotros" element={<AboutUsPage />} />
+        <Route path="/vendedor" element={<SellerPage />} />
       </Routes>
       <Footer />
     </BrowserRouter>

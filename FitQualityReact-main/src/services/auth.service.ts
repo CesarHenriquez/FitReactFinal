@@ -1,16 +1,17 @@
-// --- Tipos ---
-export type Role = "admin" | "cliente";
+
+
+export type Role = "admin" | "cliente" | "vendedor";
 
 export interface User {
   run: string;
   nombre: string;
   apellidos: string;
-  correo: string;   // email (solo @gmail.com)
+  correo: string;   
   region: string;
   comuna: string;
   direccion: string;
   role: Role;
-  password: string; // Agregado para la contraseña
+  password: string; 
 }
 
 const USERS_KEY = "users";
@@ -86,7 +87,7 @@ export function deleteUserByEmail(email: string) {
   const list = getUsers().filter(u => u.correo.toLowerCase() !== target);
   saveUsers(list);
 
-  // si borran al usuario con sesión activa, limpia sesión
+  
   const s = getSession();
   if (s && s.email.toLowerCase() === target) {
     clearSession();

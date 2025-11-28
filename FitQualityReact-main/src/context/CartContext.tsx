@@ -17,7 +17,7 @@ const CartCtx = createContext<CartStore | null>(null);
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>(() => cartService.all());
 
-  // Mantener sincronizado con cambios locales
+  
   const refresh = () => setItems(cartService.all());
 
   useEffect(() => {

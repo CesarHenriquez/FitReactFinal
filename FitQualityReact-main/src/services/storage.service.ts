@@ -1,4 +1,4 @@
-// Servicio simple para leer, guardar y eliminar datos del localStorage
+
 export const storage = {
   get<T>(key: string, fallback: T): T {
     try {

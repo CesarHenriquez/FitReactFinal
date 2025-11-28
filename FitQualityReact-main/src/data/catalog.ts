@@ -83,15 +83,7 @@ export const PRODUCTOS: Record<string, Product> = {
     material: "Núcleo de hierro con recubrimiento vinílico.",
     optionKey: "mancuernas",
   },
-  discos: {
-    id: "discos",
-    nombre: "Discos de Peso",
-    precio: 29990,
-    img: "https://dnkkaawggv0bs.cloudfront.net/7518-large_default/pack-150kg-discos-powerlifting-chromed-steel-xmaster.jpg",
-    bullets: ["Diámetro estándar para barra olímpica.", "Alta durabilidad.", "Tolerancia de peso ±2%."],
-    material: "Acero cromado / goma densa (según modelo).",
-    optionKey: "discos",
-  },
+ 
   barra: {
     id: "barra",
     nombre: "Barra Olímpica",

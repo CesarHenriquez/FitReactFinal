@@ -1,296 +1,264 @@
-import { useEffect, useMemo, useState } from "react";
-import { type Product, PRODUCTOS } from "../../data/catalog"; //Importar productos base
-import {
-  getAdminProducts,
-  saveAdminProducts,
-  getFullCatalog, // Importar la función para obtener el listado completo
-} from "../../services/admin-catalog.service";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-
-
-import { getUsers, deleteUserByEmail, type User } from "../../services/auth.service";
-
-// Usa el catálogo completo para el listado
-const CATALOGO_BASE_IDS = Object.keys(PRODUCTOS);
-
-type FormState = { id: string; nombre: string; precio: number; img: string };
+import { api, getImageUrl, type ApiProduct, type ApiUser } from "../../services/api";
+import toast from 'react-hot-toast';
 
 export function AdminPage() {
-  
-  const [allProducts, setAllProducts] = useState<Product[]>([]);
-  const [f, setF] = useState<FormState>({ id: "", nombre: "", precio: 0, img: "" });
+  const [products, setProducts] = useState<ApiProduct[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [users, setUsers] = useState<ApiUser[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
 
-  
-  const [users, setUsers] = useState<User[]>([]);
+  //  ESTADO PARA SABER SI ESTOY EDITANDO 
+  const [editingId, setEditingId] = useState<number | null>(null);
 
-  const load = () => {
-    // Carga todos los productos (base + admin)
-    setAllProducts(Object.values(getFullCatalog()));
-    setUsers(getUsers());
+  const [form, setForm] = useState({
+    nombre: "",
+    descripcion: "",
+    precio: 0,
+    stock: 0,
+    imagenUri: "",
+    categoriaId: 1
+  });
+
+  const darkToastStyle = {
+    background: '#1f2937', color: '#fff', border: '1px solid #374151',
   };
 
-  useEffect(load, []);
+  useEffect(() => {
+    loadProducts();
+    loadUsers();
+  }, []);
 
-  const canSave = useMemo(
-    () => f.id.trim() !== "" && f.nombre.trim() !== "" && f.precio > 0,
-    [f]
-  );
-
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Usa alert temporalmente
-    if (!canSave) return alert("Completa ID, nombre y precio.");
-
-    const id = f.id.trim().toLowerCase().replace(/\s+/g, "-");
-    // Verificar si el ID existe en la lista 
-    if (allProducts.some(p => p.id === id)) return alert(`Error: El ID '${id}' ya existe.`);
-
-    const nuevo: Product = {
-      id,
-      nombre: f.nombre.trim(),
-      precio: Number(f.precio),
-      img: f.img.trim() || "https://via.placeholder.com/600x400?text=Producto",
-      bullets: ["Producto agregado por administrador."],
-      material: "—",
-      optionKey: "none",
-    };
-
-    // Guarda en la lista de productos de admin y refresca todo
-    const updatedAdminProducts = [...getAdminProducts(), nuevo];
-    saveAdminProducts(updatedAdminProducts);
-    setAllProducts(Object.values(getFullCatalog()));
-    setF({ id: "", nombre: "", precio: 0, img: "" });
-    alert("Producto agregado.");
+  const loadProducts = () => {
+    setLoadingProducts(true);
+    api.getProductos()
+      .then(setProducts)
+      .catch(err => console.error(err))
+      .finally(() => setLoadingProducts(false));
   };
 
-  // Función para obtener la lista de productos que si puede modificar/eliminar
-  const getModifiableProducts = () => {
-    // Obtiene solo los productos que están en localStorage (productos admin y productos base modificados)
-    // aquí trabaja solo con los productos extra/modificados en localStorage.
-    // Si se quiere editar productos base, debemos cargar los datos base + la sobrescritura.
-    return getAdminProducts();
+  const loadUsers = () => {
+    setLoadingUsers(true);
+    api.getUsuarios()
+      .then(setUsers)
+      .catch(err => console.error(err))
+      .finally(() => setLoadingUsers(false));
   };
 
-  const del = (id: string, isBaseProduct: boolean) => {
-    // Usa alert temporalmente
-    if (!confirm(`¿Estás seguro de ELIMINAR el producto ${id}?`)) return;
-
-    if (isBaseProduct) {
-      alert("No se puede eliminar un producto base del código fuente. Solo se puede 'desactivar' (funcionalidad no implementada) o modificar.");
-      return;
-    }
-
-    // Eliminación de productos de Admin (los que están en localStorage)
-    const updatedAdminProducts = getModifiableProducts().filter(x => x.id !== id);
-    saveAdminProducts(updatedAdminProducts);
-    setAllProducts(Object.values(getFullCatalog())); // Recargar la lista completa
-    alert("Producto eliminado.");
+  //  LÓGICA DE ELIMINAR 
+  const handleDeleteProduct = (id: number, nombre: string) => {
+    toast((t) => (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <p style={{ margin: 0 }}>¿Eliminar <b>"{nombre}"</b>?</p>
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+          <button onClick={() => toast.dismiss(t.id)} style={{ background: 'transparent', border: '1px solid #777', color: '#fff', padding: '4px 8px', borderRadius: '4px', cursor:'pointer' }}>Cancelar</button>
+          <button onClick={() => { toast.dismiss(t.id); confirmDelete(id); }} style={{ background: '#ef4444', border: 'none', color: 'white', padding: '4px 8px', borderRadius: '4px', cursor:'pointer' }}>Eliminar</button>
+        </div>
+      </div>
+    ), { style: darkToastStyle, icon: '🗑️' });
   };
 
-  const edit = (id: string) => {
-    const current = allProducts.find(x => x.id === id);
-    if (!current) return alert("Producto no encontrado para editar.");
+  const confirmDelete = async (id: number) => {
+    await toast.promise(api.eliminarProducto(id), {
+      loading: 'Eliminando...',
+      success: 'Producto eliminado.',
+      error: 'Error al eliminar.',
+    }, { style: darkToastStyle });
+    setProducts(prev => prev.filter(p => p.id !== id));
+  };
 
+  //  NUEVA LÓGICA: INICIAR EDICIÓN 
+  const startEdit = (product: any) => {
+    setEditingId(product.id); 
     
-    const nombre = prompt("Nuevo nombre:", current.nombre) ?? current.nombre;
-    const precioStr = prompt("Nuevo precio:", String(current.precio)) ?? String(current.precio);
-    const img = prompt("Nueva URL de imagen (opcional):", current.img || "") ?? current.img;
-
-    const precio = Number(precioStr);
-
-    const updatedProduct: Product = {
-      ...current,
-      nombre: String(nombre || current.nombre).trim(),
-      precio: isNaN(precio) ? current.precio : precio,
-      img: (img || "").trim() || current.img,
+  
+    setForm({
+      nombre: product.nombre,
+      descripcion: product.descripcion,
+      precio: product.precio,
+      stock: product.stock,
+      imagenUri: product.imagenUri || "",
      
-    };
+      categoriaId: product.categoria ? product.categoria.id : 1 
+    });
 
-    // Obtenemos la lista actual de productos modificados/agregados en localStorage
-    const modifiableProducts = getModifiableProducts();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    toast(`Editando: ${product.nombre}`, { icon: '✏️', style: darkToastStyle });
+  };
 
-    const idx = modifiableProducts.findIndex(x => x.id === id);
+  //  CANCELAR EDICIÓN  
+  const cancelEdit = () => {
+    setEditingId(null);
+    setForm({ nombre: "", descripcion: "", precio: 0, stock: 0, imagenUri: "", categoriaId: 1 });
+    toast("Edición cancelada", { icon: '❌', style: darkToastStyle });
+  };
 
-    if (idx >= 0) {
-      // El producto ya estaba en localStorage (era de admin o ya se había modificado)
-      modifiableProducts[idx] = updatedProduct;
-    } else {
-      // Es un producto base (viene de PRODUCTOS) que se está modificando por primera vez.
-      // Lo agrega a la lista de productos de admin (sobrescritura)
-      modifiableProducts.push(updatedProduct);
-    }
+  // GUARDAR O ACTUALIZAR 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     
-    // Guarda la lista modificada
-    saveAdminProducts(modifiableProducts);
+    if (!form.nombre || form.precio <= 0) {
+        toast.error("Datos incompletos.", { style: darkToastStyle });
+        return;
+    }
 
-    // Refresca el estado para ver los cambios
-    setAllProducts(Object.values(getFullCatalog()));
-    alert("Producto actualizado.");
+    try {
+      if (editingId) {
+        //  MODO EDICIÓN (PUT)
+        const updatePromise = api.editarProducto(editingId, form);
+        
+        await toast.promise(updatePromise, {
+            loading: 'Actualizando datos...',
+            success: '¡Producto actualizado correctamente!',
+            error: 'Error al actualizar.',
+        }, { style: darkToastStyle });
+
+        setEditingId(null); // Salir del modo edición
+
+      } else {
+        // MODO CREACIÓN (POST)
+        const savePromise = api.agregarProducto(form);
+        
+        await toast.promise(savePromise, {
+            loading: 'Guardando...',
+            success: '¡Producto creado!',
+            error: 'Error al guardar.',
+        }, { style: darkToastStyle });
+      }
+
+      // Limpiar y recargar
+      setForm({ nombre: "", descripcion: "", precio: 0, stock: 0, imagenUri: "", categoriaId: 1 });
+      loadProducts();
+
+    } catch (error) {
+      console.error(error);
+    }
   };
 
-  // eliminar usuario 
-  const removeUser = (email: string, role: User["role"]) => {
-    // Usamos confirm/alert temporalmente
-    const msg =
-      role === "admin"
-        ? `Vas a eliminar un usuario ADMIN (${email}). ¿Continuar?`
-        : `¿Eliminar el usuario ${email}?`;
-
-    if (!confirm(msg)) return;
-    deleteUserByEmail(email);
-    setUsers(getUsers());
-    alert("Usuario eliminado.");
-  };
+  const inputStyle = { backgroundColor: '#ffffff', color: '#000000', border: '1px solid #ced4da', fontWeight: '500' };
 
   return (
     <main className="grid admin-panel">
       <div className="container page-narrow">
-        <div className="d-flex justify-content-end mb-2">
-          <Link to="/" className="btn btn--outline">← Volver</Link>
+        <div className="d-flex justify-content-between align-items-center mb-3">
+            <Link to="/" className="btn btn--outline">← Volver al inicio</Link>
+            <h1 className="m-0">Panel de Administración</h1>
         </div>
 
-        <h1 className="page-title text-center">Panel de Administración (Demo)</h1>
-        <p className="text-center mb-3">
-          Los cambios en productos (agregados/editados) se guardan en <strong>localStorage</strong>.
-        </p>
-
-        {/* -------- Agregar Productos -------- */}
-        <div className="card p-3">
-          <h2 className="mb-2">Agregar nuevo producto</h2>
-          <form className="form" onSubmit={onSubmit}>
-            <div className="form-group">
-              <label>ID del producto (único)</label>
-              <input
-                value={f.id}
-                onChange={e => setF(s => ({ ...s, id: e.target.value }))}
-                maxLength={40}
-                required
-              />
+        {/* FORMULARIO DINÁMICO (CREAR O EDITAR) */}
+        <div className="card p-4 mb-5" style={{ backgroundColor: '#1f2937', border: editingId ? '2px solid #3b82f6' : '1px solid #374151' }}>
+          
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <h2 className="text-center m-0" style={{ color: editingId ? '#3b82f6' : '#22c55e' }}>
+                {editingId ? "✏️ Editando Producto" : "➕ Agregar Nuevo Producto"}
+            </h2>
+            {editingId && (
+                <button type="button" onClick={cancelEdit} className="btn btn-sm btn-secondary">
+                    Cancelar Edición
+                </button>
+            )}
+          </div>
+          
+          <form onSubmit={handleSubmit} className="d-flex flex-column gap-3">
+            <div>
+                <label className="form-label">Nombre</label>
+                <input className="form-control" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} required style={inputStyle} />
+            </div>
+            <div>
+                <label className="form-label">Descripción</label>
+                <input className="form-control" value={form.descripcion} onChange={e => setForm({...form, descripcion: e.target.value})} required style={inputStyle} />
+            </div>
+            <div className="row">
+                <div className="col-6">
+                    <label className="form-label">Precio</label>
+                    <input type="number" className="form-control" value={form.precio} onChange={e => setForm({...form, precio: Number(e.target.value)})} style={inputStyle} />
+                </div>
+                <div className="col-6">
+                    <label className="form-label">Stock</label>
+                    <input type="number" className="form-control" value={form.stock} onChange={e => setForm({...form, stock: Number(e.target.value)})} style={inputStyle} />
+                </div>
+            </div>
+            <div className="row">
+                <div className="col-6">
+                    <label className="form-label">Categoría</label>
+                    <select className="form-control" value={form.categoriaId} onChange={e => setForm({...form, categoriaId: Number(e.target.value)})} style={inputStyle}>
+                        <option value={1}>Accesorios</option>
+                        <option value={2}>Pesas</option>
+                    </select>
+                </div>
+                <div className="col-6">
+                    <label className="form-label">Imagen (nombre sin .png)</label>
+                    <input className="form-control" value={form.imagenUri} onChange={e => setForm({...form, imagenUri: e.target.value})} style={inputStyle} />
+                </div>
             </div>
 
-            <div className="form-group">
-              <label>Nombre</label>
-              <input
-                value={f.nombre}
-                onChange={e => setF(s => ({ ...s, nombre: e.target.value }))}
-                maxLength={60}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Precio</label>
-              <input
-                type="number"
-                min={0}
-                step={1}
-                value={f.precio}
-                onChange={e => setF(s => ({ ...s, precio: Number(e.target.value) }))}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label>URL de imagen (opcional)</label>
-              <input
-                value={f.img}
-                onChange={e => setF(s => ({ ...s, img: e.target.value }))}
-              />
-            </div>
-
-            <div className="d-flex justify-content-end">
-              <button className="btn" disabled={!canSave}>Agregar producto</button>
-            </div>
+            <button className="btn mt-2" style={{ width: '100%', backgroundColor: editingId ? '#3b82f6' : '#22c55e', borderColor: 'transparent', color: '#fff' }}>
+                {editingId ? "Actualizar Producto" : "Guardar Producto"}
+            </button>
           </form>
         </div>
 
-        {/* -------- Editar/Eliminar Productos (Catálogo Completo) -------- */}
-        <div className="card p-3 mt-3">
-          <h2 className="mb-2">Catálogo Completo ({allProducts.length} productos)</h2>
-          {allProducts.length === 0 ? (
-            <p>No hay productos en el catálogo.</p>
-          ) : (
-            <table className="cart-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Nombre</th>
-                  <th>Precio</th>
-                  <th>Origen</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {allProducts.map(p => {
-                  // Determina si es un producto base 
-                  const isBaseProduct = CATALOGO_BASE_IDS.includes(p.id);
-
-                  return (
-                    <tr key={p.id}>
-                      <td><code>{p.id}</code></td>
-                      <td>{p.nombre}</td>
-                      <td>${p.precio.toFixed(0)}</td>
-                      <td>
-                        {isBaseProduct ? "Base" : "Admin"}
-                      </td>
-                      <td className="d-flex gap-2">
-                        <button className="btn btn--outline btn--sm" onClick={() => edit(p.id)}>
-                          Editar
-                        </button>
-                        {/* Solo permite eliminar si no es un producto base (para no borrar catálogo principal) */}
-                        {!isBaseProduct && (
-                          <button className="btn btn--outline btn--sm" onClick={() => del(p.id, isBaseProduct)}>
-                            Eliminar
-                          </button>
-                        )}
-                        {isBaseProduct && (
-                           <span className="muted" style={{ fontSize: '12px', lineHeight: '2.2'}}>No Eliminable</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
+        {/* LISTADO */}
+        <h3 className="mb-3">Inventario Actual</h3>
+        <div className="table-responsive mb-5">
+            {loadingProducts ? <p>Cargando...</p> : (
+                <table className="cart-table w-100">
+                    <thead>
+                        <tr><th>ID</th><th>Img</th><th>Nombre</th><th>Stock</th><th>Precio</th><th>Acciones</th></tr>
+                    </thead>
+                    <tbody>
+                        {products.map((p) => (
+                            <tr key={p.id} style={editingId === p.id ? { backgroundColor: 'rgba(59, 130, 246, 0.1)' } : {}}>
+                                <td>{p.id}</td>
+                                <td><img src={getImageUrl(p.imagenUri)} alt={p.nombre} style={{ width: 40, borderRadius: 4 }} /></td>
+                                <td>{p.nombre}</td>
+                                <td>{p.stock}</td>
+                                <td>${p.precio}</td>
+                                <td className="d-flex gap-2">
+                                    {/* BOTÓN EDITAR */}
+                                    <button 
+                                        className="btn btn-sm"
+                                        style={{ backgroundColor: '#3b82f6', color: 'white', border: 'none' }}
+                                        onClick={() => startEdit(p)}
+                                    >
+                                        Editar
+                                    </button>
+                                    {/* BOTÓN ELIMINAR */}
+                                    <button 
+                                        className="btn btn-sm" 
+                                        style={{ backgroundColor: '#ef4444', color: 'white', border: 'none' }}
+                                        onClick={() => handleDeleteProduct(p.id, p.nombre)}
+                                    >
+                                        X
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            )}
         </div>
 
-        {/* -------- Usuarios -------- */}
-        <div className="card p-3 mt-4">
-          <h2 className="mb-2">Usuarios registrados</h2>
-          {users.length === 0 ? (
-            <p>No hay usuarios registrados.</p>
-          ) : (
-            <table className="cart-table">
-              <thead>
-                <tr>
-                  <th>RUN</th>
-                  <th>Nombre</th>
-                  <th>Correo</th>
-                  <th>Rol</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map(u => (
-                  <tr key={u.correo}>
-                    <td>{u.run}</td>
-                    <td>{u.nombre} {u.apellidos}</td>
-                    <td>{u.correo}</td>
-                    <td>{u.role}</td>
-                    <td className="d-flex gap-2">
-                      <button
-                        className="btn btn--outline btn--sm"
-                        onClick={() => removeUser(u.correo, u.role)}
-                      >
-                        Eliminar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+        <h2 className="mb-3" style={{ color: '#3b82f6', borderTop: '1px solid #374151', paddingTop: '20px' }}>Usuarios</h2>
+        <div className="card p-3" style={{ backgroundColor: '#1f2937' }}>
+            {loadingUsers ? <p>Cargando...</p> : (
+                <div className="table-responsive">
+                    <table className="cart-table w-100">
+                        <thead><tr><th>ID</th><th>Nombre</th><th>Correo</th><th>Rol</th></tr></thead>
+                        <tbody>
+                            {users.map((u) => (
+                                <tr key={u.id}>
+                                    <td>{u.id}</td>
+                                    <td style={{ fontWeight: 'bold', color: '#fff' }}>{u.nickname}</td>
+                                    <td className="muted">{u.correo}</td>
+                                    <td><span className="badge bg-secondary">{u.rol?.nombre || 'CLIENTE'}</span></td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
         </div>
       </div>
     </main>

@@ -1,24 +1,45 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getFullCatalog } from "../../services/admin-catalog.service";
 import { ProductCard } from "../../components/ProductCard";
+import { api, getImageUrl, type ApiProduct } from "../../services/api";
 
 export function HomePage() {
-  const catalog = Object.values(getFullCatalog());
+  const [destacados, setDestacados] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Productos destacados
-  const preferidos = ["magnesio", "straps", "cinturon"];
-  const destacados = [
-    ...preferidos
-      .map((id) => catalog.find((p) => p.id === id))
-      .filter(Boolean) as typeof catalog,
-  ];
+  useEffect(() => {
+    // Pide todos los productos al backend
+    api.getProductos()
+      .then((data) => {
+        
+        const allProducts = data.map((p: ApiProduct) => ({
+          id: p.id.toString(),
+          nombre: p.nombre,
+          precio: p.precio,
+          img: getImageUrl(p.imagenUri), // Construye la ruta de la imagen
+          material: p.descripcion,
+          stock: p.stock, 
+          optionKey: "none"
+        }));
 
-  // si faltan, rellena con los primeros del catálogo
-  while (destacados.length < 3 && destacados.length < catalog.length) {
-    const next = catalog.find((p) => !destacados.some((d) => d.id === p.id));
-    if (!next) break;
-    destacados.push(next);
-  }
+        
+        const keywords = ["Cinturón", "Magnesio", "Straps"];
+        
+        let featured = allProducts.filter(p => 
+            keywords.some(k => p.nombre.toLowerCase().includes(k.toLowerCase()))
+        );
+
+       
+        if (featured.length < 3) {
+            const otros = allProducts.filter(p => !featured.includes(p));
+            featured = [...featured, ...otros].slice(0, 3);
+        }
+
+        setDestacados(featured.slice(0, 3)); 
+      })
+      .catch((err) => console.error("Error cargando home:", err))
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
     <main>
@@ -42,17 +63,24 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Productos Destacados */}
+      {/* Productos Destacados Dinámicos */}
       <section className="grid">
         <div className="container">
           <h2>Productos Destacados</h2>
-          <div className="row g-3">
-            {destacados.slice(0, 3).map((p) => (
-              <div key={p.id} className="col-12 col-sm-6 col-lg-4">
-                <ProductCard p={p} />
-              </div>
-            ))}
-          </div>
+          
+          {loading ? (
+             <p className="text-center">Cargando destacados...</p>
+          ) : (
+            <div className="row g-3">
+                {destacados.map((p) => (
+                <div key={p.id} className="col-12 col-sm-6 col-lg-4">
+                    {/* Al usar el mismo ProductCard, el botón "Ver Detalle" funcionará automáticamente */}
+                    <ProductCard p={p} />
+                </div>
+                ))}
+            </div>
+          )}
+
         </div>
       </section>
     </main>

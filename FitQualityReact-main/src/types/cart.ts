@@ -1,6 +1,6 @@
 export interface CartItem {
-  id: string;    // puede incluir variante, ej: "mancuernas-10KG"
-  name: string;  // ej: "Mancuernas (10KG)"
+  id: string;    
+  name: string;  
   price: number;
   qty: number;
 }
